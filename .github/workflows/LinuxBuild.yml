@@ -1,7 +1,11 @@
 name: MacOS Intel/Linux Green Dictionary Build
 
 on:
-  workflow_dispatch
+  - workflow_dispatch
+  - workflow_run:
+      workflows: [StartBuild]
+      types:
+        - completed
 
 permissions:
   contents: read
