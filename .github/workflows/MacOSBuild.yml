@@ -1,7 +1,10 @@
 name: MacOS Apple Green Dictionary Build
 
 on:
-  workflow_dispatch
+  workflow_run:
+    workflows: [StartBuild]
+    types:
+      - completed
 
 permissions:
   contents: read
