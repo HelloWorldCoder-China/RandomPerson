@@ -187,6 +187,7 @@ def textmode():
         global cfgname
         cfgname="选择列表文件"
     namecfg=config("./config/text.cfg",{"cfgname":"选择列表文件"},textcfgsetdefaultvalue)
+    testgit
     else:
         try:
             cfgnamerd=yaml.load(cfg,Loader=yaml.SafeLoader)
