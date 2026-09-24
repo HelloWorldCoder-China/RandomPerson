@@ -8,38 +8,70 @@ import os
 import yaml
 main=tk.Tk()
 main.title("随机选人软件-初三4班出品 v2.1")
+
+#region 配置管理
+class config:
+    def __init__(self,name,default:dict,rewriteaction:callable=None):
+        self.name=name
+        self.default=default
+        self.rewriteaction=rewriteaction
+        try:
+            self.content=yaml.load(open(name,"r+"),Loader=yaml.SafeLoader)
+        except:
+            self.content=default
+            yaml.dump(default,open(name,"w+"))
+            try:
+                rewriteaction(self)
+            except:
+                pass
+    def reread(self):
+        try:
+            self.content=yaml.load(open(self.name,"r+"),Loader=yaml.SafeLoader)
+        except:
+            self.content=self.default
+            yaml.dump(self.default,open(self.name,"w+"))
+            try:
+                self.rewriteaction(self)
+            except:
+                pass
+    def write(self,target:dict):
+        self.content=target
+        yaml.dump(self.content,open(self.name,"w+"))
+    def edit(self,content:dict):
+        def searchreplace(path_content: dict, path_new: dict):
+            for key in path_new.keys():
+                if key in path_content:
+                    if isinstance(path_new[key],dict) and isinstance(path_content[key],dict):
+                        searchreplace(path_content[key],path_new[key])
+                    else:
+                        path_content[key]=path_new[key]
+                else:
+                    path_content[key]=path_new[key]
+        searchreplace(self.content,content)
+        yaml.dump(self.content,open(self.name,"w+"))
+
+#endregion 配置管理
+
+#region 启动
 os.makedirs("./config",exist_ok=True)
 os.makedirs("./config/textlist",exist_ok=True)
-try:
-    cfg=open("./config/main.cfg","r+").read()
-except:
-    cfg=""
-def writedefaultcfgmain():
+def maincfgsetdefaultvalue(cfg):
     global mode,countnum,swidth,shight
-    cfgmain={"mode":"number","count":1,"swidth":"auto","shight":"auto"}
     mode="number"
     countnum=1
     swidth=main.winfo_screenwidth()
     shight=main.winfo_screenheight()
-    yaml.dump(cfgmain,open("./config/main.cfg","w+"))
-if cfg=="":
-    writedefaultcfgmain()
+maincfg=config("./config/main.cfg",{"mode":"number","count":1,"swidth":"auto","shight":"auto"},maincfgsetdefaultvalue)
+mode=maincfg.content["mode"]
+countnum=maincfg.content["count"]
+if maincfg.content["swidth"]=="auto":
+    swidth=main.winfo_screenwidth()
 else:
-    try:
-        cfgmain=yaml.load(cfg,Loader=yaml.SafeLoader)
-        mode=cfgmain["mode"]
-        countnum=cfgmain["count"]
-        if cfgmain["swidth"]=="auto":
-            swidth=main.winfo_screenwidth()
-        else:
-            swidth=cfgmain["swidth"]
-        if cfgmain["shight"]=="auto":
-            shight=main.winfo_screenheight()
-        else:
-            shight=cfgmain["shight"]
-    except:
-        writedefaultcfgmain()
-        print("配置文件损坏,已重置为默认配置")
+    swidth=maincfg.content["swidth"]
+if maincfg.content["shight"]=="auto":
+    shight=main.winfo_screenheight()
+else:
+    shight=maincfg.content["shight"]
 if swidth<=1920 or shight<=1580:
     main.geometry(f"{int(swidth/3)}x{int(shight/2.5)}+{int(swidth/3)}+{int(shight/2.5-shight/10)}")
 main.geometry(f"{int(swidth/3)}x{int(shight/3)}+{int(swidth/3)}+{int(shight/3-shight/10)}")
@@ -50,8 +82,9 @@ def percentwidth(percent):
     return int(swidth*percent/3/100)
 def percentheight(percent):
     return int(shight*percent/3/100)
+#endregion 启动
 
-#数字输入框(开始)
+#region 数字输入框
 def intboxup(entry):
     try:
         value=int(entry.get())
@@ -79,56 +112,41 @@ def intinput(defaultvalue,packside=tk.LEFT,anchor=tk.CENTER,app=main,width=4):
     intup=tk.Button(frame,text="+",font=("微软雅黑",15),command=lambda:intboxup(box))
     intup.pack(side=tk.LEFT)
     return box
-#数字输入框(结束)
+#endregion 数字输入框
 
-#随机抽取座号(开始)
-def numberrand():
-    global start,end,count,result,startbtn,cfgnumber
+#region 随机抽取座号
+def numbercfgsetdefaultvalue(cfg):
+    global start,end
+    start=1
+    end=50
+numbercfg=config("./config/number.cfg",{"start":1,"end":50},numbercfgsetdefaultvalue)
+def numberrand():    
+    global start,end,count,result,startbtn,numbercfg
     try:
-        result.set("")
+        result.set("正在处理,请稍后......")
         getallready=[]
         if(int(end.get())-int(start.get())+1<int(count.get()) or int(end.get())<int(start.get())):
             result.set("输入错误,请检查抽取数量与范围")
             return
-        cfgnumber["start"]=int(start.get())
-        cfgnumber["end"]=int(end.get())
-        yaml.dump(cfgnumber,open("./config/number.cfg","w+"))
-        for i in range(int(count.get())):
-            while True:
-                numnow=ra.randint(int(start.get()),int(end.get()))
-                if numnow not in getallready:
-                    result.set(str(numnow)+" "+result.get())
-                    getallready.append(numnow)
-                    break
+        numbercfg.edit({"start":int(start.get()),"end":int(end.get())})
+        pool=ra.sample(range(int(start.get()),int(end.get())),int(count.get()))
+        result.set("")
+        for i in range(len(pool)):
+            if i!=0:
+                result.set(result.get()+" ")
+            result.set(result.get()+str(pool[i]))
     except:
         result.set("输入错误,请检查抽取数量与范围")
 def numbermode():
-    global start,end,count,result,startbtn,modechooseframe,addboxregistry,cfgnumber
+    global start,end,count,result,startbtn,modechooseframe,addboxregistry,numbercfg
 
     for box in addboxregistry:
         box.destroy()
     addboxregistry.clear()
 
-    try:
-        cfg=open("./config/number.cfg","r+").read()
-    except:
-        cfg=""
-    if cfg=="":
-        cfgnumber={"start":1,"end":50}
-        yaml.dump(cfgnumber,open("./config/number.cfg","w+"))
-        startnum=1
-        endnum=50
-    else:
-        try:
-            cfgnumber=yaml.load(cfg,Loader=yaml.SafeLoader)
-            startnum=cfgnumber["start"]
-            endnum=cfgnumber["end"]
-        except:
-            cfgnumber={"start":1,"end":50}
-            yaml.dump(cfgnumber,open("./config/number.cfg","w+"))
-            startnum=1
-            endnum=50
-            print("配置文件损坏,已重置为默认配置")
+    numbercfg.reread()
+    startnum=numbercfg.content["start"]
+    endnum=numbercfg.content["end"]
 
     rangeframe=tk.Frame(main)
     rangeframe.pack(pady=percentheight(2),after=modechooseframe)
@@ -139,26 +157,24 @@ def numbermode():
     totext.pack(side=tk.LEFT)
     end=intinput(endnum,app=rangeframe)
     addboxregistry.append(rangeframe)
-#随机抽取座号(结束)
+#endregion 随机抽取座号
 
-#随机抽取名字(开始)
+#region 随机抽取名字
 def textrand():
     global cfgname,namelist,count,result,startbtn,cfgnamerd
     try:
         result.set("")
-        getallready=[]
         if(len(namelist)<int(count.get())):
             result.set("输入错误,请检查抽取数量与范围")
             return
         cfgnamerd["cfgname"]=cfgname.split("/")[-1].split(".")[0]
         yaml.dump(cfgnamerd,open("./config/text.cfg","w+"))
         for i in range(int(count.get())):
-            while True:
-                namenow=ra.choice(namelist)
-                if namenow not in getallready:
-                    result.set(str(namenow)+" "+result.get())
-                    getallready.append(namenow)
-                    break
+            namenow=ra.choice(namelist)
+            namelist.remove(namenow)
+            if i!=0:
+                result.set(result.get()+" ")
+            result.set(result.get()+namenow)
     except Exception as e:
         result.set(e)
 def textmode():
@@ -167,14 +183,10 @@ def textmode():
         box.destroy()
     addboxregistry.clear()
 
-    try:
-        cfg=open("./config/text.cfg","r+").read()
-    except:
-        cfg=""
-    if cfg=="":
-        cfgnamerd={"cfgname":"选择列表文件"}
-        yaml.dump(cfgnamerd,open("./config/text.cfg","w+"))
+    def textcfgsetdefaultvalue(cfg):
+        global cfgname
         cfgname="选择列表文件"
+    namecfg=config("./config/text.cfg",{"cfgname":"选择列表文件"},textcfgsetdefaultvalue)
     else:
         try:
             cfgnamerd=yaml.load(cfg,Loader=yaml.SafeLoader)
@@ -283,9 +295,9 @@ def textmode():
     textconfigremovebtn=tk.Button(textconfigframe,text="删除",font=("微软雅黑",15),command=removecfg)
     textconfigremovebtn.pack(side=tk.LEFT)
     addboxregistry.append(textconfigframe)
-#随机抽取名字(结束)
+#endregion 随机抽取名字
 
-#固定内容
+#region 固定内容
 title=tk.Label(main,text="随机选人软件-初三4班出品",font=("微软雅黑",25))
 title.pack(pady=percentheight(4))
 
@@ -342,5 +354,6 @@ if mode=="number":
     numbermode()
 elif mode=="text":
     textmode()
+#endregion
 
 main.mainloop()
